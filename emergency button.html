@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Button with Adafruit IO</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #b3e0ff; /* Baby Blue */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            transition: background-color 0.5s ease;
+        }
+        
+        .container {
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #0066cc;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+        }
+        
+        .subtitle {
+            color: #004d99;
+            margin-bottom: 40px;
+            font-size: 1.2rem;
+        }
+        
+        .emergency-button {
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #ff4d4d, #cc0000);
+            margin: 0 auto 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 10px 25px rgba(204, 0, 0, 0.4);
+            transition: all 0.3s ease;
+            border: 8px solid #fff;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .emergency-button:before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transform: scale(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .emergency-button:hover:before {
+            transform: scale(1);
+        }
+        
+        .emergency-button.active {
+            background: linear-gradient(145deg, #4dff4d, #00cc00);
+            box-shadow: 0 10px 25px rgba(0, 204, 0, 0.4);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .emergency-button.active:before {
+            background: rgba(255, 255, 255, 0.4);
+        }
+        
+        .button-text {
+            color: white;
+            font-size: 1.8rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+            z-index: 1;
+        }
+        
+        .status {
+            margin-top: 30px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            font-size: 1.1rem;
+            color: #004d99;
+        }
+        
+        .connection-status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            font-size: 0.9rem;
+            color: #004d99;
+        }
+        
+        .connection-status.connected {
+            color: #00cc00;
+        }
+        
+        .connection-status.disconnected {
+            color: #cc0000;
+        }
+        
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 10px 25px rgba(0, 204, 0, 0.4);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 15px 35px rgba(0, 204, 0, 0.6);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 10px 25px rgba(0, 204, 0, 0.4);
+            }
+        }
+        
+        @media (max-width: 600px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .emergency-button {
+                width: 180px;
+                height: 180px;
+            }
+            
+            .button-text {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Emergency Button</h1>
+        <p class="subtitle">Press in case of emergency</p>
+        
+        <div class="emergency-button" id="emergencyButton">
+            <div class="button-text">EMERGENCY</div>
+        </div>
+        
+        <div class="status" id="status">
+            Status: Ready - Click the button for emergency
+        </div>
+        
+        <div class="connection-status" id="connectionStatus">
+            Adafruit IO: Connecting...
+        </div>
+    </div>
+
+    <script>
+        // Adafruit IO Configuration
+        const ADAFRUIT_IO_USERNAME = "car_count_2025";
+        const ADAFRUIT_IO_KEY = "aio_uPjn40SjKVQX9AG1pFHtsHKhkLkX";
+        const FEED_NAME = "led";
+        
+        const emergencyButton = document.getElementById('emergencyButton');
+        const statusText = document.getElementById('status');
+        const connectionStatus = document.getElementById('connectionStatus');
+        
+        let isEmergency = false;
+        let isConnected = false;
+        
+        // Initialize connection to Adafruit IO
+        initializeAdafruitIO();
+        
+        // Activate/deactivate emergency mode
+        emergencyButton.addEventListener('click', function() {
+            isEmergency = !isEmergency;
+            
+            if (isEmergency) {
+                emergencyButton.classList.add('active');
+                statusText.textContent = "Status: Emergency activated - Sending notifications";
+                document.body.style.backgroundColor = "#ffcccc";
+                
+                // Send "1" to Adafruit IO to turn on LED
+                sendToAdafruitIO(1);
+            } else {
+                emergencyButton.classList.remove('active');
+                statusText.textContent = "Status: Emergency cancelled - System ready";
+                document.body.style.backgroundColor = "#b3e0ff";
+                
+                // Send "0" to Adafruit IO to turn off LED
+                sendToAdafruitIO(0);
+            }
+        });
+        
+        // Initialize connection to Adafruit IO
+        function initializeAdafruitIO() {
+            // Test connection by fetching current feed value
+            fetch(`https://io.adafruit.com/api/v2/${ADAFRUIT_IO_USERNAME}/feeds/${FEED_NAME}`, {
+                headers: {
+                    'X-AIO-Key': ADAFRUIT_IO_KEY
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    isConnected = true;
+                    connectionStatus.textContent = "Adafruit IO: Connected";
+                    connectionStatus.className = "connection-status connected";
+                    return response.json();
+                } else {
+                    throw new Error('Failed to connect to Adafruit IO');
+                }
+            })
+            .then(data => {
+                console.log("Current LED value:", data.last_value);
+            })
+            .catch(error => {
+                console.error("Adafruit IO connection error:", error);
+                connectionStatus.textContent = "Adafruit IO: Connection Failed";
+                connectionStatus.className = "connection-status disconnected";
+            });
+        }
+        
+        // Send data to Adafruit IO
+        function sendToAdafruitIO(value) {
+            if (!isConnected) {
+                console.error("Not connected to Adafruit IO");
+                return;
+            }
+            
+            const data = {
+                value: value
+            };
+            
+            fetch(`https://io.adafruit.com/api/v2/${ADAFRUIT_IO_USERNAME}/feeds/${FEED_NAME}/data`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-AIO-Key': ADAFRUIT_IO_KEY
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (response.ok) {
+                    console.log(`Successfully sent value ${value} to Adafruit IO`);
+                    return response.json();
+                } else {
+                    throw new Error('Failed to send data to Adafruit IO');
+                }
+            })
+            .then(data => {
+                console.log("Adafruit IO response:", data);
+            })
+            .catch(error => {
+                console.error("Error sending data to Adafruit IO:", error);
+            });
+        }
+    </script>
+</body>
+</html>
