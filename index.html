@@ -13,7 +13,7 @@
         }
         
         body {
-            background-color: #b3e0ff; /* Baby Blue */
+            background-color: #b3e0ff;
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -207,8 +207,11 @@
         
         // Initialize connection to Adafruit IO
         function initializeAdafruitIO() {
-            // Test connection by fetching current feed value
-            fetch(`https://io.adafruit.com/api/v2/${ADAFRUIT_IO_USERNAME}/feeds/${FEED_NAME}`, {
+            // Use CORS proxy for the connection test
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+            const targetUrl = `https://io.adafruit.com/api/v2/${ADAFRUIT_IO_USERNAME}/feeds/${FEED_NAME}`;
+            
+            fetch(proxyUrl + targetUrl, {
                 headers: {
                     'X-AIO-Key': ADAFRUIT_IO_KEY
                 }
@@ -235,16 +238,15 @@
         
         // Send data to Adafruit IO
         function sendToAdafruitIO(value) {
-            if (!isConnected) {
-                console.error("Not connected to Adafruit IO");
-                return;
-            }
+            // Use CORS proxy to avoid CORS issues
+            const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+            const targetUrl = `https://io.adafruit.com/api/v2/${ADAFRUIT_IO_USERNAME}/feeds/${FEED_NAME}/data`;
             
             const data = {
                 value: value
             };
             
-            fetch(`https://io.adafruit.com/api/v2/${ADAFRUIT_IO_USERNAME}/feeds/${FEED_NAME}/data`, {
+            fetch(proxyUrl + targetUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -255,6 +257,9 @@
             .then(response => {
                 if (response.ok) {
                     console.log(`Successfully sent value ${value} to Adafruit IO`);
+                    isConnected = true;
+                    connectionStatus.textContent = "Adafruit IO: Connected";
+                    connectionStatus.className = "connection-status connected";
                     return response.json();
                 } else {
                     throw new Error('Failed to send data to Adafruit IO');
@@ -265,6 +270,9 @@
             })
             .catch(error => {
                 console.error("Error sending data to Adafruit IO:", error);
+                isConnected = false;
+                connectionStatus.textContent = "Adafruit IO: Connection Failed";
+                connectionStatus.className = "connection-status disconnected";
             });
         }
     </script>
